@@ -1,7 +1,7 @@
 package cryptopals
 
-func XOR(dst, str, key []byte) {
-	for i := 0; i < len(str); i++ {
-		dst[i] = str[i] ^ key[i%len(key)]
+func XOR(dst, data, key []byte) {
+	for i := 0; i < len(data); i++ {
+		dst[i] = data[i] ^ key[i%len(key)]
 	}
 }
