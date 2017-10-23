@@ -5,27 +5,26 @@ import (
 )
 
 var (
-	ErrorInvalidPaddingChar = errors.New("Invalid padding char")
+	ErrorInvalidPadding = errors.New("Invalid padding")
+	ErrorInvalidLength  = errors.New("Length not multiples of block size")
 )
 
 // Strip removes padding. Returns error if
-func Strip(buf []byte) ([]byte, error) {
-	for i := len(buf) - 1; i >= 0; i-- {
-		c := buf[i]
-
-		if c == 4 {
-			continue
-		}
-
-		isPrintable := (c >= 0x20 && c <= 0x7E) || c == 10
-
-		if !isPrintable {
-			return nil, ErrorInvalidPaddingChar
-		}
-
-		return buf[0 : i+1], nil
+func Strip(p []byte, bsize int) ([]byte, error) {
+	if len(p)%bsize != 0 {
+		return nil, ErrorInvalidLength
 	}
 
-	// all padding chars...
-	return nil, nil
+	npad := int(p[len(p)-1])
+	if npad > bsize {
+		return p, nil
+	}
+
+	for i := 0; i < npad; i++ {
+		if p[len(p)-1-i] != byte(npad) {
+			return nil, ErrorInvalidPadding
+		}
+	}
+
+	return p[:len(p)-npad], nil
 }
