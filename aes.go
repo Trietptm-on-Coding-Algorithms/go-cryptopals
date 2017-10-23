@@ -5,6 +5,8 @@ import (
 	"crypto/cipher"
 	"errors"
 	"io"
+
+	"github.com/hayeah/go-cryptopals/pkcs7"
 )
 
 var (
@@ -41,6 +43,8 @@ func NewAES_CBC(key, iv []byte) (*AES_CBC, error) {
 // ctext = encrypt ptext = aes_ecb_encrypt(ptext ^ ctext_prev)
 // ptext = decrypt ctext = aes_ecb_decrypt(ctext) ^ ctext_prev
 func (c *AES_CBC) Encrypt(w io.Writer, r io.Reader) error {
+	r = pkcs7.NewPaddedReader(r, c.bsize)
+
 	ptext := make([]byte, c.bsize)
 	obuf := make([]byte, c.bsize)
 
@@ -48,31 +52,26 @@ func (c *AES_CBC) Encrypt(w io.Writer, r io.Reader) error {
 	copy(ctextPrev, c.iv)
 
 	for {
-		nread, err := io.ReadFull(r, ptext)
-
-		if err == io.EOF {
-			return nil
-		}
-
-		if err == io.ErrUnexpectedEOF {
-			for i := 0; i < c.bsize-nread; i++ {
-				ptext[nread+i] = 4
-			}
-
-			err = nil
-		}
+		_, err := io.ReadFull(r, ptext)
 
 		if err != nil {
-			return err
+			switch err {
+			case io.EOF:
+				return nil
+			case io.ErrUnexpectedEOF:
+				panic("pkcs7.NewPaddedReader should always be able to return full blocks")
+			case err:
+				return err
+			}
 		}
 
 		XOR(ptext, ptext, ctextPrev)
 		c.cb.Encrypt(obuf, ptext)
 		copy(ctextPrev, obuf)
 
-		_, err = w.Write(obuf)
-		if err != nil {
-			return err
+		_, werr := w.Write(obuf)
+		if werr != nil {
+			return werr
 		}
 	}
 }
@@ -87,18 +86,10 @@ func (c *AES_CBC) Decrypt(w io.Writer, r io.Reader) error {
 	copy(ctextPrev, c.iv)
 
 	for {
-		nread, err := io.ReadFull(r, ctext)
+		_, err := io.ReadFull(r, ctext)
 
 		if err == io.EOF {
 			return nil
-		}
-
-		if err == io.ErrUnexpectedEOF {
-			for i := 0; i < nread; i++ {
-				ctext[nread+i] = 4
-			}
-
-			err = nil
 		}
 
 		if err != nil {

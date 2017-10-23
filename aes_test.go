@@ -2,10 +2,12 @@ package cryptopals
 
 import (
 	"bytes"
+	"encoding/hex"
+	"io"
+	"os"
 	"testing"
 
 	"github.com/hayeah/go-cryptopals/pkcs7"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,10 +29,15 @@ func TestCBC(t *testing.T) {
 	ctext := make([]byte, w.Len())
 	copy(ctext, w.Bytes())
 
+	hexd := hex.Dumper(os.Stdout)
+	defer hexd.Close()
+
+	io.Copy(hexd, bytes.NewReader(ctext))
+
 	w.Reset()
 	cbc.Decrypt(&w, bytes.NewReader(ctext))
 	ptext := w.Bytes()
-	ptext, err = pkcs7.Strip(ptext)
+	ptext, err = pkcs7.Strip(ptext, 16)
 	is.NoError(err)
 	is.Equal(zarathustra, string(ptext))
 }
