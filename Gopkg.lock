@@ -8,6 +8,24 @@
   version = "v1.1.0"
 
 [[projects]]
+  name = "github.com/kyokomi/emoji"
+  packages = ["."]
+  revision = "7e06b236c489543f53868841f188a294e3383eab"
+  version = "v1.5"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/logrusorgru/aurora"
+  packages = ["."]
+  revision = "b9c3722b64a1976e0624448ee7f5a0744b8cf629"
+
+[[projects]]
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
+
+[[projects]]
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
@@ -22,6 +40,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b750880cdc8ce044e6f9bf3b331d8a392471c328107b8c3d42e3e11022d76858"
+  inputs-digest = "a1d290e26dda0c70479cb0734499509f61a8a59256ac63645aa58c2db88fa0da"
   solver-name = "gps-cdcl"
   solver-version = 1
