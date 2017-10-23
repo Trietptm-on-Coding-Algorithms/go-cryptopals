@@ -3,11 +3,19 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
+	"math/big"
+	mrand "math/rand"
 	"net/url"
 	"os"
+	"time"
+
+	"github.com/kyokomi/emoji"
+
+	"github.com/logrusorgru/aurora"
 
 	"github.com/pkg/errors"
 
@@ -60,7 +68,7 @@ func modifyCipher(target string) (ctext []byte, err error) {
 		// userdata=[PADDING] [TARGETBLOCK]
 		// <     2 blocks   > < 1 block   >
 		userdata := string(data[0 : i+bsize])
-		fmt.Println("userdata", userdata)
+		emoji.Printf(":mag: %s len=%d %s\n", aurora.Cyan("Try userdata"), len(userdata), userdata)
 
 		ctextW.Reset()
 		err := encodeUserData(&ctextW, userdata)
@@ -99,13 +107,35 @@ func main() {
 		log.Fatalln("main", err)
 	}
 
-	fmt.Println("modified ctext:")
+	emoji.Println(":star:", aurora.Green("Found modified ctext!"))
 
-	cryptopals.HexFormatCopy(os.Stdout, bytes.NewReader(ctext), 16)
+	// fmt.Println(aurora.Magenta("modified ctext:"))
+
+	hexW := hex.Dumper(os.Stdout)
+	defer hexW.Close()
+
+	io.Copy(hexW, bytes.NewReader(ctext))
+
+	// cryptopals.HexFormatCopy(os.Stdout, bytes.NewReader(ctext), 16)
 }
 
 func encodeUserData(w io.Writer, userdata string) error {
-	ptext := "comment1=cooking%20MCs;userdata=" + url.QueryEscape(userdata) + ";comment2=%20like%20a%20pound%20of%20bacon"
+	now := time.Now()
+	mrand.Seed(int64(now.Nanosecond()))
+
+	size, err := rand.Int(rand.Reader, big.NewInt(10))
+	if err != nil {
+		return err
+	}
+
+	randprefix := make([]byte, size.Int64()+5)
+
+	_, err = io.ReadFull(rand.Reader, randprefix)
+	if err != nil {
+		return err
+	}
+
+	ptext := string(randprefix) + "comment1=cooking%20MCs;userdata=" + url.QueryEscape(userdata) + ";comment2=%20like%20a%20pound%20of%20bacon"
 	return cbc.Encrypt(w, bytes.NewReader([]byte(ptext)))
 }
 
@@ -119,6 +149,6 @@ func isAdmin(ctextR io.Reader) (bool, error) {
 	}
 
 	ptext := isAdminDecryptW.Bytes()
-	fmt.Printf("check admin ptext: %#v\n", string(ptext))
+	fmt.Printf("   Check admin %#v\n", string(ptext))
 	return bytes.Contains(ptext, []byte(";admin=true;")), nil
 }
