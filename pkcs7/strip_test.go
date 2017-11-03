@@ -24,7 +24,8 @@ func TestStrip(t *testing.T) {
 
 		{8, "abcd123\x01\x08\x08\x08\x08\x08\x08\x08\x08", "abcd123\x01", nil},
 		{8, "abcd123\x08\x08\x08\x08\x08\x08\x08\x08\x08", "abcd123\x08", nil},
-		{8, "abcd123\x09", "abcd123\x09", nil},
+		{8, "abcd123\x09", "abcd123\x09", ErrorInvalidPadding},
+		{8, "abcd123\x09\x08\x08\x08\x08\x08\x08\x08\x08", "abcd123\x09", nil},
 
 		{16, "abcd1234abcd\x04\x04\x04\x04", "abcd1234abcd", nil},
 	}

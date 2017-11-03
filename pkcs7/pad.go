@@ -37,13 +37,16 @@ func (r *PaddedReader) Read(p []byte) (int, error) {
 				// last block does not align with block size
 				r.npad = r.bsize - r.bytesRead%r.bsize
 			} else {
+				// pad with a whole block
+				r.npad = r.bsize
+
 				// last block DOES align with block size. Check if last byte is ambiguous
-				if int(r.lastByteRead) <= r.bsize {
-					// lastByte is ambiguous, append an extra padding block
-					r.npad = r.bsize
-				} else {
-					r.npad = 0
-				}
+				// if int(r.lastByteRead) <= r.bsize {
+				// 	// lastByte is ambiguous, append an extra padding block
+				// 	r.npad = r.bsize
+				// } else {
+				// 	r.npad = 0
+				// }
 			}
 
 			r.padByte = byte(r.npad)

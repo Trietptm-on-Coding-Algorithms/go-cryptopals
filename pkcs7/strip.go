@@ -21,10 +21,10 @@ func Strip(p []byte, bsize int) ([]byte, error) {
 
 	npad := int(p[len(p)-1])
 
-	if npad > bsize {
-		// non-ambiguous byte
-		return p, nil
-	}
+	// if npad > bsize {
+	// 	// non-ambiguous byte
+	// 	return p, nil
+	// }
 
 	for i := 1; i < int(npad); i++ {
 		if byte(npad) != p[len(p)-1-i] {
