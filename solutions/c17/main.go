@@ -7,8 +7,12 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	mrand "math/rand"
+	"time"
 
 	"github.com/hayeah/go-cryptopals/pkcs7"
+	"github.com/kyokomi/emoji"
+	"github.com/logrusorgru/aurora"
 
 	"github.com/hayeah/go-cryptopals"
 
@@ -25,6 +29,8 @@ MDAwMDA2QW5kIGEgaGlnaCBoYXQgd2l0aCBhIHNvdXBlZCB1cCB0ZW1wbw==
 MDAwMDA3SSdtIG9uIGEgcm9sbCwgaXQncyB0aW1lIHRvIGdvIHNvbG8=
 MDAwMDA4b2xsaW4nIGluIG15IGZpdmUgcG9pbnQgb2g=
 MDAwMDA5aXRoIG15IHJhZy10b3AgZG93biBzbyBteSBoYWlyIGNhbiBibG93`
+
+const clearLine = "\033[2K\033[1000D"
 
 var cbc *cryptopals.AES_CBC
 
@@ -56,7 +62,6 @@ func randomPtext() ([]byte, error) {
 	for s.Scan() {
 		line := s.Bytes()
 		lines = append(lines, line)
-		// fmt.Println("line", s.Text())
 	}
 	err := s.Err()
 	if err != nil {
@@ -64,9 +69,10 @@ func randomPtext() ([]byte, error) {
 	}
 
 	// spew.Dump("lines", lines)
-
-	// n := mrand.Intn(len(lines))
-	n := 0
+	now := time.Now()
+	mrand.Seed(int64(now.Nanosecond()))
+	n := mrand.Intn(len(lines))
+	// n := 0
 	line := lines[n]
 	dst := make([]byte, base64.StdEncoding.DecodedLen(len(line)))
 	_, err = base64.StdEncoding.Decode(dst, line)
@@ -90,7 +96,7 @@ type cbcPaddingOracleCracker struct {
 
 var errorSearchExhausted = errors.New("search exhausted")
 
-func (c *cbcPaddingOracleCracker) analyzeBlock(guesses, blockPrev, block []byte, i int) error {
+func (c *cbcPaddingOracleCracker) analyzeBlock(guesses, ctext, blockPrev, block []byte, i int) error {
 	// i is the nth char from the end. 0 is the last char.
 
 	target := byte(i + 1)
@@ -108,7 +114,6 @@ func (c *cbcPaddingOracleCracker) analyzeBlock(guesses, blockPrev, block []byte,
 
 	for j := 0; j <= 0xff; j++ {
 		copy(blockPrev[n:c.Bsize], octextBytes)
-		// fmt.Printf("guess at %d => %d\n", i, j)
 		blockPrev[n] = octextBytes[0]
 
 		// Fiddle with the nth byte, if valid padding, recurse.
@@ -118,7 +123,7 @@ func (c *cbcPaddingOracleCracker) analyzeBlock(guesses, blockPrev, block []byte,
 		blockPrev[n] ^= edit
 
 		guesses[n] = guess
-		fmt.Printf("guess: %d %#v\n", i, string(guesses))
+		// fmt.Printf("guess: %02d %#v", i, string(guesses))
 
 		// need to recover blockPrev to original ctext, then attempt to modify each byte to target, by assuming the bytes in "guesses"
 		for ii := 0; ii < i; ii++ {
@@ -131,12 +136,7 @@ func (c *cbcPaddingOracleCracker) analyzeBlock(guesses, blockPrev, block []byte,
 			blockPrev[n] ^= edit
 		}
 
-		valid, err := c.validPadding()
-
-		// fmt.Printf("i = %d, j = %d, guesses =%#v\n", i, j, string(guesses))
-		// if i == 1 && guesses[c.Bsize-1] == 0x0c && j == 0x0c {
-		// 	fmt.Println("stop here!")
-		// }
+		valid, err := c.validPadding(ctext)
 
 		if err != nil {
 			return err
@@ -155,7 +155,7 @@ func (c *cbcPaddingOracleCracker) analyzeBlock(guesses, blockPrev, block []byte,
 		}
 
 		copy(blockPrev[n:c.Bsize], octextBytes)
-		err = c.analyzeBlock(guesses, blockPrev, block, i+1)
+		err = c.analyzeBlock(guesses, ctext, blockPrev, block, i+1)
 		if err == nil {
 			return nil
 		}
@@ -167,93 +167,45 @@ func (c *cbcPaddingOracleCracker) analyzeBlock(guesses, blockPrev, block []byte,
 	return errorSearchExhausted
 }
 
-func (c *cbcPaddingOracleCracker) run() error {
+func (c *cbcPaddingOracleCracker) run() ([]byte, error) {
 
 	bsize := c.Bsize
 	ctext := c.Ctext
 
 	guesses := make([]byte, bsize)
 
-	// 32
-	// 16 : 32
-	// 0 : 16
-	block := ctext[len(ctext)-bsize*1 : len(ctext)-bsize*0]
-	blockPrev := ctext[len(ctext)-bsize*2 : len(ctext)-bsize*1]
+	var output []byte
 
-	err := c.analyzeBlock(guesses, blockPrev, block, 0)
-	if err != nil {
-		return err
+	for i := 0; i < len(ctext)/bsize; i++ {
+		block := ctext[i*bsize : (i+1)*bsize]
+		var blockPrev []byte
+		if i == 0 {
+			blockPrev = c.IV
+		} else {
+			blockPrev = ctext[(i-1)*bsize : i*bsize]
+		}
+
+		err := c.analyzeBlock(guesses, ctext[:(i+1)*bsize], blockPrev, block, 0)
+		if err != nil {
+			return nil, err
+		}
+
+		output = append(output, guesses...)
+
+		fmt.Printf("block[%02d]: %#v\n", i, string(guesses))
 	}
 
-	fmt.Println("guessed block", guesses)
-	fmt.Printf("guessed block: %#v\n", string(guesses))
-
-	// target := byte(0x2)
-	// for i := 0; i <= 0xff; i++ {
-	// 	// edit n block last byte
-	// 	ithbyte := len(ctext) - 1 - bsize*1
-	// 	ctext[ithbyte] = ctext[ithbyte] ^ byte(i)
-	// 	iok, err := c.validPadding(ctext)
-
-	// 	// iok, err := c.checkEdit(ctext, len(ctext)-1-bsize*1, byte(i))
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	// 	// if !iok {
-	// 	// 	continue
-	// 	// }
-
-	// 	jokcount := 0
-	// 	var jbyte byte
-	// 	for j := 0; j <= 0xff; j++ {
-	// 		// edit n - 1 block last byte
-	// 		jok, err := c.checkEdit(ctext, len(ctext)-2-bsize*1, byte(j))
-	// 		if err != nil {
-	// 			return err
-	// 		}
-
-	// 		fmt.Println("check i,j", i, j, iok, jok)
-
-	// 		if jok {
-	// 			jbyte = byte(j)
-	// 			jokcount++
-	// 		}
-
-	// 		if jokcount > 1 {
-	// 			break
-	// 		}
-	// 	}
-
-	// 	//
-	// 	if jokcount == 1 {
-	// 		fmt.Printf("i,j %d %d", i, jbyte)
-	// 		// fmt.Println("i,j", strconv.Itoa(i), strconv.Itoa(int(jbyte)))
-	// 		break
-	// 	}
-
-	// }
-
-	return nil
+	return pkcs7.Strip(output, bsize)
 }
 
-// func (c *cbcPaddingOracleCracker) checkEdit(ctext []byte, nthbyte int, b byte) (bool, error) {
-// 	// i := len(ctext) - c.bsize * nthblock
-// 	// oldbyte := ctext[nthbyte]
-// 	ctext[nthbyte] = b
-// 	ok, err := c.validPadding(ctext)
-// 	// ctext[nthbyte] = oldbyte
-// 	return ok, err
-// }
-
-func (c *cbcPaddingOracleCracker) validPadding() (bool, error) {
+func (c *cbcPaddingOracleCracker) validPadding(ctext []byte) (bool, error) {
 	c.dbuf.Reset()
-	err := cbc.Decrypt(&c.dbuf, bytes.NewReader(c.Ctext))
+
+	err := cbc.Decrypt(&c.dbuf, bytes.NewReader(ctext))
 	if err != nil {
 		return false, errors.Wrap(err, "cbc decrypt")
 	}
 
-	// fmt.Println("dtext:")
 	// spew.Dump(c.dbuf.Bytes())
 
 	_, err = pkcs7.Strip(c.dbuf.Bytes(), c.Bsize)
@@ -289,10 +241,13 @@ func testRun() error {
 		Bsize: bsize,
 	}
 
-	err = cracker.run()
+	output, err := cracker.run()
 	if err != nil {
 		return errors.Wrap(err, "crack cbc")
 	}
+
+	emoji.Println(":star:", aurora.Green("Padding oracle attack success!"))
+	fmt.Printf("%#v\n", string(output))
 
 	return nil
 }
