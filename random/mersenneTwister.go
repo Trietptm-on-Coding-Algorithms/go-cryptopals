@@ -25,50 +25,50 @@ var (
 const indexUnseeded = -1
 
 type MersenneTwister struct {
-	mt []uint64
+	Mt []uint64
 
-	index int
+	Index int
 }
 
 func NewMersenneTwister() *MersenneTwister {
 	return &MersenneTwister{
-		mt:    make([]uint64, n),
-		index: indexUnseeded,
+		Mt:    make([]uint64, n),
+		Index: indexUnseeded,
 	}
 }
 
 func (m *MersenneTwister) Seed(seed uint64) {
-	m.index = n
-	m.mt[0] = seed
+	m.Index = n
+	m.Mt[0] = seed
 
 	for i := 1; i < n; i++ {
-		m.mt[i] = (f*(m.mt[i-1]^(m.mt[i-1]>>(w-2))) + uint64(i))
+		m.Mt[i] = (f*(m.Mt[i-1]^(m.Mt[i-1]>>(w-2))) + uint64(i))
 	}
 }
 
 func (m *MersenneTwister) Next() uint64 {
-	if m.index == indexUnseeded {
+	if m.Index == indexUnseeded {
 		panic("never seeded")
 	}
 
-	if m.index == n {
+	if m.Index == n {
 		// twist
 		m.twist()
 	}
 
-	y := m.mt[m.index]
+	y := m.Mt[m.Index]
 	y = y ^ ((y >> u) & d)
 	y = y ^ ((y << s) & b)
 	y = y ^ ((y << t) & c)
 	y = y ^ (y >> l)
 
-	m.index++
+	m.Index++
 
 	return y
 }
 
 func (self *MersenneTwister) twist() {
-	MT := self.mt
+	MT := self.Mt
 	for i := 0; i < n; i++ {
 		x := (MT[i] & upperMask) + (MT[(i+1)%n] & lowerMask)
 		xA := x >> 1
@@ -80,5 +80,5 @@ func (self *MersenneTwister) twist() {
 		MT[i] = MT[(i+m)%n] ^ xA
 	}
 
-	self.index = 0
+	self.Index = 0
 }
