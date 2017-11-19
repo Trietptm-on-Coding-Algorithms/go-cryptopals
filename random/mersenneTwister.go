@@ -19,7 +19,7 @@ const (
 
 var (
 	lowerMask uint64 = 0x7FFFFFFF
-	upperMask uint64 = ^lowerMask
+	upperMask        = ^(lowerMask)
 )
 
 const indexUnseeded = -1
