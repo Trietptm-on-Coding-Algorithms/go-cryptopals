@@ -7,8 +7,8 @@ import (
 
 // mimic golang's standard API
 
-// ctrStream turns a block cipher into CTR mode stream
-type ctrStream struct {
+// CTRStream turns a block cipher into CTR mode stream
+type CTRStream struct {
 	cipher cipher.Block
 
 	// This implementation differs from NIST Special Publication 800-38A. In which the nonce is assumed to be sufficiently random, and combeind with counter.
@@ -22,8 +22,8 @@ type ctrStream struct {
 }
 
 // XORKeyStream implements cipher.Stream interface
-func (s *ctrStream) XORKeyStream(dst, src []byte) {
-	n := len(dst)
+func (s *CTRStream) XORKeyStream(dst, src []byte) {
+	n := len(src)
 
 	bsize := s.cipher.BlockSize()
 
@@ -45,7 +45,23 @@ func (s *ctrStream) XORKeyStream(dst, src []byte) {
 	}
 }
 
-func NewCTR(block cipher.Block, iv []byte) cipher.Stream {
+func (s *CTRStream) Seek(offset int) {
+	bsize := s.cipher.BlockSize()
+
+	nthblock := offset / bsize
+	byteInBlock := offset % bsize
+
+	s.counter = uint64(nthblock) + 1 // counter for next keystream block
+	s.unreadKeybytes = bsize - byteInBlock
+
+	// write counter to the lower 8 bytes
+	binary.LittleEndian.PutUint64(s.xorbuf[8:], uint64(nthblock))
+
+	// calculate the current block of keystream
+	s.cipher.Encrypt(s.keystream[:], s.xorbuf[:])
+}
+
+func NewCTR(block cipher.Block, iv []byte) *CTRStream {
 	// assume 16 bytes block size...
 	if len(iv) != 8 {
 		panic("iv should be 8 bytes")
@@ -53,7 +69,7 @@ func NewCTR(block cipher.Block, iv []byte) cipher.Stream {
 
 	// bsize := block.BlockSize()
 
-	s := &ctrStream{
+	s := &CTRStream{
 		cipher: block,
 		// keystream: make([]byte, bsize),
 	}
